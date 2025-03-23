@@ -1,0 +1,1 @@
+Hi there, this python algorith uses k-mean clustering along with the elbow method for optimal clustering to forecaste churn probability, average order value, and frequent category of item based on regional season.
