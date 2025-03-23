@@ -1,0 +1,164 @@
+#Import Data
+
+from google.colab import files
+uploaded = files.upload()
+
+import pandas as pd
+
+# Define df
+df = pd.read_csv('sales_and_customer_insights(in).csv')
+
+# Group data by season and retention strategy and calculate average order value and churn probability
+grouped_data = df.groupby(['Season', 'Retention_Strategy'])[['Average_Order_Value', 'Churn_Probability']].mean()
+
+# Sort by churn probability within each season and take the top 3
+result = grouped_data.groupby('Season').apply(lambda x: x.sort_values('Churn_Probability').head(3)).reset_index(level=0)
+
+# Display the results in a table
+from IPython.display import display, HTML
+
+display(HTML(result.to_html()))
+
+# Group data by region and retention strategy and calculate average order value and churn probability
+grouped_data = df.groupby(['Region', 'Retention_Strategy'])[['Average_Order_Value', 'Churn_Probability']].mean()
+
+# Sort by churn probability within each region and take the top 3
+result = grouped_data.groupby('Region').apply(lambda x: x.sort_values('Churn_Probability').head(3)).reset_index(level=0)
+
+# Display the results in a table
+from IPython.display import display, HTML
+
+display(HTML(result.to_html()))
+
+# Group data by season, region, and retention strategy, then calculate average churn probability
+grouped_data = df.groupby(['Season', 'Region', 'Retention_Strategy'])['Churn_Probability'].mean().reset_index()
+
+# Find the minimum churn probability for each season and region
+min_churn = grouped_data.loc[grouped_data.groupby(['Season', 'Region'])['Churn_Probability'].idxmin()]
+
+# Display the results in a table
+from IPython.display import display, HTML
+
+display(HTML(min_churn.to_html()))
+
+#Forecasted Churn Probability
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+
+# Assuming 'df' is your DataFrame from the previous code
+
+# Select relevant features for K-means
+features = ['Season', 'Region', 'Retention_Strategy']
+X = pd.get_dummies(df[features], columns=['Season', 'Region', 'Retention_Strategy'])  # One-hot encode categorical features
+
+# Scale the features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Determine optimal number of clusters.
+distortions = []
+K = range(1,10)
+for k in K:
+  kmeanModel = KMeans(n_clusters=k)
+  kmeanModel.fit(X_scaled)
+  distortions.append(kmeanModel.inertia_)
+plt.figure(figsize=(16,8))
+plt.plot(K, distortions, 'bx-')
+plt.xlabel('k')
+plt.ylabel('Distortion')
+plt.title('The Elbow Method showing the optimal k')
+plt.show()
+
+
+# Apply K-means clustering
+kmeans = KMeans(n_clusters=2, random_state=42)
+df['Cluster'] = kmeans.fit_predict(X_scaled)
+
+# Analyze clusters and forecast churn probability
+cluster_analysis = df.groupby('Cluster')['Churn_Probability'].mean()
+print(cluster_analysis)
+
+# Example forecast based on cluster
+def forecast_churn(season, region, retention_strategy):
+    input_data = pd.DataFrame([[season, region, retention_strategy]], columns=['Season', 'Region', 'Retention_Strategy'])
+    input_data = pd.get_dummies(input_data, columns=['Season', 'Region', 'Retention_Strategy'])
+    input_data = input_data.reindex(columns=X.columns, fill_value=0)
+    scaled_input = scaler.transform(input_data)
+    predicted_cluster = kmeans.predict(scaled_input)[0]
+    forecasted_churn = cluster_analysis[predicted_cluster]
+    return forecasted_churn
+
+# Put whatever you want below to get the forecasted chrun probability
+season = 'Fall'
+region = 'NA'
+retention = 'Loyalty Program'
+
+forecasted_churn_probability = forecast_churn(season, region, retention)
+print(f'Forecasted Churn Probability for {season}, {region}, {retention}: {forecasted_churn_probability}')
+
+#Forecasted average order value
+import pandas as pd
+
+
+# Select relevant features for K-means
+features = ['Region', 'Season', 'Retention_Strategy']
+X = pd.get_dummies(df[features], columns=['Region', 'Season', 'Retention_Strategy'])  # One-hot encode categorical features
+
+# Scale the features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Apply K-means clustering
+kmeans = KMeans(n_clusters=3, random_state=42) # You can adjust the number of clusters as needed
+df['Cluster'] = kmeans.fit_predict(X_scaled)
+
+# Analyze clusters and Average_Order_Value
+cluster_analysis = df.groupby('Cluster')['Average_Order_Value'].mean()
+print(cluster_analysis)
+
+# Example prediction based on cluster
+def predict_aov(region, season, retention_strategy):
+    input_data = pd.DataFrame([[region, season, retention_strategy]], columns=['Region', 'Season', 'Retention_Strategy'])
+    input_data = pd.get_dummies(input_data, columns=['Region', 'Season', 'Retention_Strategy'])
+    input_data = input_data.reindex(columns=X.columns, fill_value=0)
+    scaled_input = scaler.transform(input_data)
+    predicted_cluster = kmeans.predict(scaled_input)[0]
+    predicted_aov = cluster_analysis[predicted_cluster]
+    return predicted_aov
+
+# Insert valid values for region, season, retention (retention program) whichw il output the forecasted average order value.
+region = 'Asia'
+season = 'Fall'
+retention = 'Loyalty Program'
+
+predicted_aov = predict_aov(region, season, retention)
+print(f'Predicted Average Order Value for {region}, {season}, {retention}: {predicted_aov}')
+
+#Forecasted frequent catergory of item
+import pandas as pd
+
+
+def predict_most_frequent_category(region, season, retention_strategy):
+    """Predicts the most frequent category based on region, season, and retention strategy using K-means clustering."""
+    input_data = pd.DataFrame([[region, season, retention_strategy]], columns=['Region', 'Season', 'Retention_Strategy'])
+    input_data = pd.get_dummies(input_data, columns=['Region', 'Season', 'Retention_Strategy'])
+    input_data = input_data.reindex(columns=X.columns, fill_value=0)
+    scaled_input = scaler.transform(input_data)
+    predicted_cluster = kmeans.predict(scaled_input)[0]
+
+    # Determine the most frequent category within the predicted cluster
+    most_frequent_category = df[df['Cluster'] == predicted_cluster]['Most_Frequent_Category'].mode()[0]
+
+    return most_frequent_category
+
+
+# Insert valid values for region, season, retention (retention program) whichw il output the forecasted most frequent category of items.
+region = 'Asia'
+season = 'Fall'
+retention = 'Loyalty Program'
+
+predicted_category = predict_most_frequent_category(region, season, retention)
+print(f"Predicted Most Frequent Category for {region}, {season}, {retention}: {predicted_category}")
+
